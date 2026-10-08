@@ -29,4 +29,4 @@ Simulador de estúdio de games (1976 → hoje), feito a partir do relatório de 
 
 O que já tem: controle de tempo com pausa (Espaço, 1/2/3), escritório isométrico em canvas, abas acessíveis (Desenvolvimento, Hardware, Marketing, Finanças, Equipe e imóveis, Pesquisa, Propriedades), sliders com gráfico de radar, contador de bugs com dupla confirmação acima de 100, crunch com burnout e vazamentos, consoles com mapa de calor e "luz vermelha", overhype, compra hostil de rivais, IPs lendárias, review bombing e save automático no navegador.
 
-Teste rápido (joga ~40 anos com um bot): `NODE_PATH=$(npm root -g) node devcity/smoke.cjs`
+Teste rápido (joga ~40 anos com um bot): `NODE_PATH=$(npm root -g) node devcity/test/smoke.cjs`. Como o código é organizado: `devcity/ARCHITECTURE.md`.
