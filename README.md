@@ -20,3 +20,13 @@ Ao mesmo tempo, eu gostaria que o jogo fosse um pouco mais scriptado, principalm
 - **Mecânica central:** gestão financeira apertada, com gastos "fúteis" (flores, chocolate, brinquedos) competindo com a sobrevivência.
 - **Arte:** peça-chave; o mundo é percebido principalmente pelo visual, não só pelo texto.
 - **Escopo:** história scriptada, até ~31 dias, cada um com seus eventos e decisões.
+
+---
+
+## Project DevCity (protótipo jogável)
+
+Simulador de estúdio de games (1976 → hoje), feito a partir do relatório de UI/UX. Abra `devcity/index.html` no navegador; não precisa instalar nada.
+
+O que já tem: controle de tempo com pausa (Espaço, 1/2/3), escritório isométrico em canvas, abas acessíveis (Desenvolvimento, Hardware, Marketing, Finanças, Equipe e imóveis, Pesquisa, Propriedades), sliders com gráfico de radar, contador de bugs com dupla confirmação acima de 100, crunch com burnout e vazamentos, consoles com mapa de calor e "luz vermelha", overhype, compra hostil de rivais, IPs lendárias, review bombing e save automático no navegador.
+
+Teste rápido (joga ~40 anos com um bot): `NODE_PATH=$(npm root -g) node devcity/smoke.cjs`

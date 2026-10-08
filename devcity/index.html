@@ -1,0 +1,994 @@
+<meta charset="utf-8">
+<title>Project DevCity</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=VT323&display=swap">
+<style>
+/* Layout: the office is the stage; the management console rises from the bottom like a desk drawer. Single dark theme on purpose (night-shift studio). */
+:root {
+  color-scheme: dark;
+  --bg: #0d1017; --panel: #151a25; --raise: #1d2431; --well: #090b10; --line: #2a3242; --fg: #e8ebf2; --muted: #8d96a9;
+  --accent: #ffb547; --accent-ink: #1b1305; --good: #5ad49a; --warn: #ff9a3c; --bad: #ff5f6d; --info: #6cc4ff; --hype: #ff7ac8; --bp: #0a1828;
+  --f-display: 'Chakra Petch', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-data: 'VT323', ui-monospace, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { height: 100% }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 var(--f-body); display: grid; grid-template-rows: auto minmax(150px, 1fr) auto; overflow: hidden }
+button, input, select { font: inherit; color: inherit }
+button { background: var(--raise); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer }
+button:hover:not(:disabled) { border-color: var(--muted) }
+button:disabled { opacity: .45; cursor: not-allowed }
+:focus-visible { outline: 2px solid var(--info); outline-offset: 2px }
+.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600 }
+.danger { background: var(--bad); color: var(--well); border-color: transparent; font-weight: 600 }
+input:not([type]), input[type=search], select { background: var(--well); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100% }
+input[type=range], input[type=checkbox] { accent-color: var(--accent) }
+input[type=range] { width: 100% }
+meter, progress { width: 100%; height: 10px }
+small, .small { font-size: 12px }
+.muted { color: var(--muted) }
+.warn { color: var(--warn) }
+.bad { color: var(--bad) }
+.eyebrow { font: 600 12px var(--f-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px }
+.label { font-size: 12px; color: var(--muted); margin: 12px 0 6px; letter-spacing: .04em }
+kbd { font: 15px var(--f-data); padding: 0 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--well) }
+
+/* HUD */
+#hud { display: flex; align-items: center; gap: 8px 20px; flex-wrap: wrap; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line) }
+.brand { font: 700 19px var(--f-display); letter-spacing: .02em } .brand span { color: var(--accent) }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; flex: 1; min-width: 0 }
+.stats div { display: grid }
+.stats dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em }
+.stats dd { margin: 0; font: 600 16px var(--f-display); font-variant-numeric: tabular-nums }
+.neg { color: var(--bad) }
+#time { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden }
+#time button { border: 0; border-radius: 0; min-width: 44px; min-height: 36px; font: 600 14px var(--f-display) }
+#time button + button { border-left: 1px solid var(--line) }
+#time [aria-pressed=true] { background: var(--accent); color: var(--accent-ink) }
+#reset { font-size: 12px; color: var(--muted) }
+.stats dd { white-space: nowrap }
+@media (max-width: 640px) {
+  .brand { display: none }
+  #hud { gap: 6px 12px; padding-block: 6px }
+  .stats { flex-basis: 100%; gap: 2px 14px }
+  .stats dd { font-size: 14px }
+  #time button { min-width: 40px; min-height: 32px }
+  .toast:nth-child(n+2) { display: none }
+}
+
+/* Stage */
+#stage { position: relative; overflow: hidden; min-height: 0 }
+#office { position: absolute; inset: 0; width: 100%; height: 100%; transition: filter .35s }
+.paused #office { filter: grayscale(.2) brightness(.88) }
+#vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at center, transparent 50%, rgb(0 0 0 / .6)); opacity: 0; transition: opacity .35s }
+.paused #vignette { opacity: 1 }
+#pauseTag { position: absolute; top: 12px; left: 50%; translate: -50% 0; font: 600 12px var(--f-display); letter-spacing: .14em; text-transform: uppercase; background: var(--well); border: 1px solid var(--line); padding: 4px 12px; border-radius: 999px; display: none }
+.paused #pauseTag { display: block }
+#crunchTag { position: absolute; left: 16px; top: 12px; background: var(--bad); color: var(--well); font: 700 12px var(--f-display); letter-spacing: .12em; text-transform: uppercase; padding: 3px 10px; border-radius: 4px }
+#where { position: absolute; left: 16px; bottom: 10px; font-size: 12px; color: var(--muted) }
+#toasts { position: absolute; right: 16px; top: 12px; display: grid; gap: 6px; width: min(320px, calc(100% - 32px)); pointer-events: none }
+.toast { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--info); padding: 8px 12px; border-radius: 6px; font-size: 13px; animation: in .25s ease-out }
+.toast.good { border-left-color: var(--good) } .toast.bad { border-left-color: var(--bad) } .toast.warn { border-left-color: var(--warn) }
+.shake { animation: shake .6s }
+
+/* Panel and tabs */
+#panel { background: var(--panel); border-top: 1px solid var(--line); min-width: 0 }
+.tabbar { display: flex; gap: 8px; padding-inline: 8px 16px; border-bottom: 1px solid var(--line) }
+[role=tablist] { display: flex; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0 }
+[role=tab] { background: none; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 10px 12px; white-space: nowrap; color: var(--muted); font: 600 13px var(--f-display); letter-spacing: .03em }
+[role=tab][aria-selected=true] { color: var(--fg); border-bottom-color: var(--accent) }
+.badge { margin-left: 6px; background: var(--accent); color: var(--accent-ink); border-radius: 999px; padding: 0 6px; font-size: 11px }
+.badge:empty { display: none }
+#collapse { background: none; border: 0; color: var(--muted); font-size: 12px; white-space: nowrap }
+#tp { max-height: min(46vh, 500px); overflow: auto; padding: 14px 16px 18px }
+#panel.collapsed #tp { display: none }
+
+/* Desenvolvimento */
+.dev { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.25fr) minmax(0, .9fr); gap: 20px }
+.col { min-width: 0 }
+.col + .col { border-left: 1px solid var(--line); padding-left: 20px }
+@media (max-width: 960px) { .dev { grid-template-columns: minmax(0, 1fr) } .col + .col { border-left: 0; padding-left: 0; border-top: 1px solid var(--line); padding-top: 14px } }
+.field { display: grid; gap: 4px; font-size: 12px; color: var(--muted); margin-bottom: 10px }
+.field output { color: var(--fg); font-variant-numeric: tabular-nums }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.chip { border-radius: 999px; padding: 4px 11px; font-size: 13px }
+.chip.good { border-color: color-mix(in srgb, var(--good) 70%, transparent) }
+.chip.on { background: var(--accent); color: var(--accent-ink); border-color: transparent }
+.chip small { opacity: .7 }
+#tfilter { margin-bottom: 8px }
+.prod { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 210px); gap: 12px; align-items: center }
+@media (max-width: 520px) { .prod { grid-template-columns: minmax(0, 1fr) } }
+.radar { margin: 0 }
+.radar svg { width: 100%; max-width: 230px; display: block; margin: auto }
+.r-axis, .r-ring { stroke: var(--line); fill: none }
+.r-lbl { fill: var(--muted); font: 10px var(--f-body) }
+.r-ideal { fill: color-mix(in srgb, var(--info) 16%, transparent); stroke: var(--info); stroke-dasharray: 4 3 }
+.r-cur { fill: color-mix(in srgb, var(--accent) 32%, transparent); stroke: var(--accent); stroke-width: 2 }
+figcaption { font-size: 12px; color: var(--muted) }
+.key { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin: 0 4px 0 8px; vertical-align: -1px }
+.key.ideal { border: 1px dashed var(--info) } .key.cur { background: var(--accent) }
+ul.warn { margin: 6px 0; padding-left: 18px; font-size: 12px }
+ul.warn:empty { display: none }
+.feats { display: grid; gap: 4px }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px }
+.check small { color: var(--muted) }
+.est { display: grid; gap: 4px; margin: 12px 0; font-size: 13px }
+.wide { width: 100%; padding-block: 10px }
+.pname { margin: 0; font: 700 18px var(--f-display) }
+.seg { display: grid; justify-items: start; gap: 2px; margin: 12px 0 }
+.seg span { font: 64px/.9 var(--f-data); color: var(--bad); background: var(--well); border: 1px solid var(--line); border-radius: 8px; padding: 6px 14px 2px; letter-spacing: .12em; text-shadow: 0 0 10px color-mix(in srgb, var(--bad) 70%, transparent) }
+#launch { width: 100%; padding-block: 10px }
+#launch.risk:not(:disabled) { background: var(--bad); color: var(--well); animation: halo 1.1s ease-in-out infinite }
+.empty { color: var(--muted); padding: 12px 0; margin: 0 }
+
+/* Marketing, finanças */
+.kpis { display: flex; flex-wrap: wrap; gap: 12px 32px; margin-bottom: 14px }
+.kpis div { display: grid }
+.kpis b { font: 600 22px var(--f-display); font-variant-numeric: tabular-nums }
+.chart { margin: 0 0 14px }
+.chart svg { width: 100%; height: auto; max-height: 200px; display: block; background: var(--well); border: 1px solid var(--line); border-radius: 8px }
+.c-base { stroke: var(--line) }
+.c-hype { fill: none; stroke: var(--hype); stroke-width: 2.5 }
+.c-prom { fill: none; stroke: var(--hype); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: .85 }
+.c-fans { fill: none; stroke: var(--good); stroke-width: 2 }
+.c-gap { fill: url(#hatch) }
+.hatch-line { fill: var(--bad) }
+.c-empty { fill: var(--muted); font: 14px var(--f-body) }
+.key.hype { background: var(--hype) } .key.prom { border: 1px dashed var(--hype) } .key.fans { background: var(--good) }
+.adlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; margin-bottom: 12px }
+.adlist button { display: grid; text-align: left; gap: 2px }
+.adlist small { color: var(--muted) }
+.check.risk { color: var(--warn) }
+.scroll { overflow-x: auto; margin-bottom: 14px }
+.tbl { width: 100%; border-collapse: collapse; font-size: 13px }
+.tbl th, .tbl td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; vertical-align: middle }
+.tbl thead th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500 }
+.tbl th small { display: block; color: var(--muted); font-weight: 400 }
+.tbl .num { text-align: right; font-variant-numeric: tabular-nums }
+.num small { display: block }
+.up { color: var(--good) } .down { color: var(--bad) }
+.acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap }
+tr.hostile { background: color-mix(in srgb, var(--bad) 14%, transparent) }
+tr.hostile th { color: var(--bad) }
+.hostile-tag { font: 700 11px var(--f-display); text-transform: uppercase; letter-spacing: .1em; color: var(--bad) }
+.donut { display: inline-block; width: 22px; height: 22px; border-radius: 50%; vertical-align: middle; background: conic-gradient(var(--accent) calc(var(--v) * 1%), var(--line) 0); -webkit-mask: radial-gradient(circle, transparent 45%, #000 46%); mask: radial-gradient(circle, transparent 45%, #000 46%) }
+
+/* Equipe, pesquisa, IPs */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-bottom: 14px }
+.card { display: grid; gap: 4px; align-content: start; background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 13px }
+.card.current { border-color: var(--accent) }
+.card button { justify-self: start; margin-top: 4px }
+.pill { display: inline-block; justify-self: start; font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted) }
+.pill.off { opacity: .45 }
+.tag { display: inline-block; justify-self: start; font-size: 12px; padding: 0 8px; border-radius: 4px; border: 1px solid currentColor }
+.tag.normal { color: var(--info) } .tag.perf { color: var(--good) } .tag.caos { color: var(--warn) }
+.crunch { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px }
+.crunch p { margin: 0; flex: 1; min-width: 200px }
+.crunch.on { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 10%, transparent) }
+.timeline { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scroll-snap-type: x proximity }
+.era { flex: 0 0 250px; display: grid; gap: 8px; align-content: start; scroll-snap-align: start; padding: 10px; border: 1px solid var(--line); border-radius: 8px }
+.era.now { border-color: var(--accent) }
+.era h3 { margin: 0; font: 700 15px var(--f-display); display: flex; justify-content: space-between; gap: 8px }
+.era h3 small { color: var(--muted); font-weight: 500 }
+.genres { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 }
+.tech { display: grid; gap: 4px; padding: 8px 10px; border-radius: 6px; background: var(--raise); border: 1px solid var(--line) }
+.tech small { color: var(--muted) }
+.tech.done { border-color: color-mix(in srgb, var(--good) 60%, transparent) }
+.tech.locked { opacity: .5 }
+.tech button { justify-self: start }
+.ok { color: var(--good); font-size: 12px }
+.ips { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px }
+.ipc { display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 10px; background: var(--raise); border: 1px solid var(--line) }
+.ipc h4 { margin: 0; font: 700 17px var(--f-display) }
+.ipc label { display: grid; gap: 3px; color: var(--muted) }
+.ipc p { margin: 0 }
+.ipc.legend { border-color: var(--hype); background: radial-gradient(120% 80% at 20% 0%, color-mix(in srgb, var(--hype) 22%, transparent), transparent 60%), radial-gradient(90% 70% at 100% 100%, color-mix(in srgb, var(--info) 18%, transparent), transparent 60%), var(--raise); animation: aura 5s ease-in-out infinite }
+.ipc.burned { filter: grayscale(1); opacity: .6 }
+.ipc.burned h4 { text-decoration: line-through }
+
+/* Hardware */
+.hw { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px }
+@media (max-width: 760px) { .hw { grid-template-columns: minmax(0, 1fr) } }
+.blueprint { background-color: var(--bp); background-image: radial-gradient(color-mix(in srgb, var(--info) 30%, transparent) 1px, transparent 1.5px); background-size: 14px 14px; border: 1px solid color-mix(in srgb, var(--info) 35%, transparent); border-radius: 10px; padding: 12px 14px }
+.blueprint .field { color: color-mix(in srgb, var(--info) 75%, var(--fg)) }
+.console { height: 96px; margin: 8px 0; border-radius: 16px 16px 34px 34px; border: 2px solid var(--info); background: radial-gradient(circle at 45% 50%, var(--heatc), transparent 62%), var(--well); display: grid; place-items: center; font: 700 14px var(--f-display); letter-spacing: .1em; text-transform: uppercase }
+.console.hot { animation: hot 1.2s ease-in-out infinite }
+.be { position: relative; display: grid; gap: 6px; margin: 10px 0 4px }
+.be .bar { height: 14px; border-radius: 3px; background: var(--muted) }
+.be .bar.price { background: var(--good) }
+.be .bar.loss { background: var(--bad) }
+.be .line { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--fg) }
+
+/* Modal */
+dialog { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; width: min(480px, calc(100% - 32px)) }
+dialog::backdrop { background: rgb(5 7 12 / .55); backdrop-filter: blur(5px) }
+dialog h2 { margin: 0 0 10px; font: 700 22px var(--f-display); text-wrap: balance }
+dialog ul { padding-left: 18px }
+#mf { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 16px }
+.review { display: flex; gap: 16px; align-items: center }
+.review p { margin: 2px 0 }
+.score { font: 64px/1 var(--f-data); min-width: 96px; text-align: center; padding: 6px; border-radius: 8px; background: var(--well) }
+.score.good { color: var(--good) } .score.warn { color: var(--warn) } .score.bad { color: var(--bad) }
+.note { padding: 8px 10px; border-radius: 6px; background: var(--raise); border-left: 3px solid var(--info); font-size: 13px }
+.note.bad { border-left-color: var(--bad) } .note.warn { border-left-color: var(--warn) } .note.good { border-left-color: var(--hype) }
+
+@keyframes halo { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--bad) 35%, transparent), 0 0 26px var(--bad) } }
+@keyframes aura { 50% { box-shadow: 0 0 30px -6px var(--hype) } }
+@keyframes hot { 50% { box-shadow: 0 0 24px var(--bad) } }
+@keyframes shake { 20%, 60% { transform: translate(-6px, 3px) } 40%, 80% { transform: translate(6px, -3px) } }
+@keyframes in { from { opacity: 0; transform: translateY(-4px) } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+</style>
+
+<header id="hud">
+  <div class="brand">Dev<span>City</span></div>
+  <dl class="stats">
+    <div><dt>Caixa</dt><dd id="money" data-live="money"></dd></div>
+    <div><dt>Data</dt><dd data-live="date"></dd></div>
+    <div><dt>Reputação</dt><dd data-live="rep"></dd></div>
+    <div><dt>Fãs</dt><dd data-live="fans"></dd></div>
+    <div><dt>Pesquisa</dt><dd><span data-live="rp"></span> PP</dd></div>
+  </dl>
+  <div id="time" role="group" aria-label="Velocidade do tempo">
+    <button data-speed="0" aria-label="Pausar" title="Pausar (espaço)">II</button>
+    <button data-speed="1" aria-label="Velocidade normal" title="Velocidade normal (1)">1x</button>
+    <button data-speed="2" aria-label="Velocidade 2x" title="Velocidade 2x (2)">2x</button>
+    <button data-speed="3" aria-label="Velocidade 3x" title="Velocidade 3x (3)">3x</button>
+  </div>
+  <button id="reset">Novo jogo</button>
+</header>
+<main id="stage">
+  <canvas id="office" role="img" aria-label="Escritório do estúdio em vista isométrica"></canvas>
+  <div id="vignette" aria-hidden="true"></div>
+  <div id="pauseTag">Pausado</div>
+  <div id="crunchTag" hidden>Crunch ativo</div>
+  <div id="where" data-live="office"></div>
+  <div id="toasts" role="status" aria-live="polite"></div>
+</main>
+<section id="panel" aria-label="Painel de gestão">
+  <div class="tabbar">
+    <div role="tablist" id="tabs" aria-label="Departamentos"></div>
+    <button id="collapse" aria-expanded="true" aria-controls="tp">Recolher</button>
+  </div>
+  <div role="tabpanel" id="tp" tabindex="0"></div>
+</section>
+<dialog id="modal" aria-labelledby="mt"><h2 id="mt"></h2><div id="mb"></div><div id="mf"></div></dialog>
+
+<script>
+// ---------- Dados do jogo ----------
+const AXES = ['Jogabilidade', 'História', 'Gráficos', 'Som'];
+const GENRES = [ // ideal = foco ideal em AXES (soma 100)
+  { id: 'acao', n: 'Ação', y: 1976, ideal: [40, 10, 35, 15] },
+  { id: 'aventura', n: 'Aventura', y: 1977, ideal: [20, 45, 20, 15] },
+  { id: 'esportes', n: 'Esportes', y: 1978, ideal: [45, 5, 30, 20] },
+  { id: 'rpg', n: 'RPG', y: 1980, ideal: [25, 45, 20, 10] },
+  { id: 'corrida', n: 'Corrida', y: 1982, ideal: [40, 5, 35, 20] },
+  { id: 'luta', n: 'Luta', y: 1987, ideal: [50, 5, 30, 15] },
+  { id: 'simulacao', n: 'Simulação', y: 1989, ideal: [50, 10, 25, 15] },
+  { id: 'estrategia', n: 'Estratégia', y: 1992, ideal: [55, 20, 15, 10] },
+  { id: 'fps', n: 'FPS', y: 1993, ideal: [45, 10, 30, 15] },
+  { id: 'vn', n: 'Visual Novel', y: 1994, ideal: [10, 60, 20, 10] },
+];
+const TOPICS = [
+  { n: 'Espaço', y: 1976, good: ['acao', 'estrategia', 'simulacao', 'fps'] },
+  { n: 'Fantasia', y: 1976, good: ['rpg', 'aventura', 'estrategia'] },
+  { n: 'Futebol', y: 1976, good: ['esportes', 'simulacao'] },
+  { n: 'Piratas', y: 1976, good: ['aventura', 'acao'] },
+  { n: 'Zumbis', y: 1978, good: ['acao', 'fps', 'aventura'] },
+  { n: 'Carros', y: 1978, good: ['corrida', 'simulacao'] },
+  { n: 'Medieval', y: 1980, good: ['estrategia', 'rpg', 'luta'] },
+  { n: 'Detetive', y: 1980, good: ['aventura', 'vn'] },
+  { n: 'Ninjas', y: 1982, good: ['luta', 'acao'] },
+  { n: 'Mitologia Nórdica', y: 1984, good: ['rpg', 'acao'] },
+  { n: 'Cyberpunk', y: 1985, good: ['rpg', 'fps', 'acao'] },
+  { n: 'Militar', y: 1985, good: ['estrategia', 'fps', 'simulacao'] },
+  { n: 'Cidade', y: 1989, good: ['simulacao', 'estrategia'] },
+  { n: 'Romance', y: 1990, good: ['vn', 'aventura'] },
+  { n: 'Escola', y: 1992, good: ['vn', 'simulacao'] },
+  { n: 'Pós-apocalipse', y: 1997, good: ['fps', 'rpg', 'aventura'] },
+  { n: 'E-sports', y: 2008, good: ['esportes', 'estrategia', 'luta', 'fps'] },
+];
+const TECH = [ // t = tempo extra de produção, q = qualidade técnica
+  { id: 'sprites', n: 'Sprites 8-bit', y: 1980, rp: 15, t: .15, q: 1 },
+  { id: 'save', n: 'Save em disquete', y: 1982, rp: 20, t: .1, q: 1 },
+  { id: 'iso', n: 'Gráficos isométricos', y: 1984, rp: 35, t: .2, q: 1.5 },
+  { id: 'dialogo', n: 'Árvore de diálogos', y: 1986, rp: 40, t: .2, q: 1.5 },
+  { id: 'synth', n: 'Trilha sintetizada', y: 1987, rp: 30, t: .1, q: 1 },
+  { id: '3d', n: '3D poligonal', y: 1992, rp: 90, t: .5, q: 3 },
+  { id: 'cd', n: 'Áudio de CD', y: 1993, rp: 60, t: .2, q: 1.5 },
+  { id: 'online', n: 'Multiplayer online', y: 1997, rp: 120, t: .4, q: 2.5 },
+  { id: 'mundo', n: 'Mundo aberto', y: 2001, rp: 160, t: .7, q: 3 },
+  { id: 'ragdoll', n: 'Física ragdoll', y: 2004, rp: 150, t: .3, q: 2 },
+  { id: 'digital', n: 'Distribuição digital', y: 2008, rp: 120, t: 0, q: 0, d: 'Fim do custo de mídia física em todos os jogos' },
+  { id: 'micro', n: 'Microtransações', y: 2009, rp: 100, t: .15, q: 0, d: '+30% de receita, −0,5 na nota da crítica' },
+  { id: 'rt', n: 'Raytracing', y: 2018, rp: 300, t: .5, q: 3 },
+  { id: 'ml', n: 'IA com machine learning', y: 2020, rp: 350, t: .4, q: 3 },
+];
+const ERAS = [['O Berço', 1976, 1979], ['Era de Ouro', 1980, 1989], ['Revolução 3D e CD', 1990, 1999], ['Física Avançada', 2000, 2009], ['Era Moderna', 2010, 2099]];
+const SLOTS = [['cpu', 'Processador'], ['midia', 'Mídia'], ['frio', 'Refrigeração'], ['ctrl', 'Controle']];
+const HW = { // [nome, ano, potência, calor (negativo = refrigeração), custo por unidade]
+  cpu: [['4-bit', 1976, 1, 1, 15], ['8-bit', 1980, 2, 2, 25], ['16-bit', 1987, 4, 3, 40], ['32-bit', 1993, 8, 5, 60], ['128-bit', 1999, 14, 7, 90], ['Multi-core', 2005, 24, 10, 120], ['Octa-core', 2013, 40, 13, 160]],
+  midia: [['Fita cassete', 1976, 0, 0, 4], ['Cartucho', 1978, 1, 0, 12], ['CD-ROM', 1993, 2, 1, 5], ['DVD', 2000, 3, 1, 6], ['Blu-ray', 2006, 4, 1, 10], ['SSD NVMe', 2020, 6, 2, 30]],
+  frio: [['Passiva', 1976, 0, -3, 1], ['Ventoinha', 1980, 0, -6, 6], ['Alta rotação', 1995, 0, -10, 14], ['Câmara de vapor', 2010, 0, -16, 28]],
+  ctrl: [['Joystick', 1976, 0, 0, 5], ['D-Pad', 1983, 1, 0, 6], ['Analógico duplo', 1997, 2, 0, 12], ['Sensor de movimento', 2006, 3, 1, 25]],
+};
+const ADS = [['Anúncio em revista', 1976, 2000, 8], ['Comercial de TV', 1985, 15000, 25], ['Site e fóruns', 1997, 6000, 15], ['Influenciadores', 2008, 25000, 35]];
+const OFFICES = [
+  { n: 'Garagem dos pais', zone: 'Subúrbio', desks: 2, rent: 0, prest: 0, cost: 0, w: 6, h: 5, floor: ['#3a3d45', '#35383f'], wall: ['#4c5160', '#424755'] },
+  { n: 'Sala comercial', zone: 'Avenida comercial', desks: 6, rent: 1500, prest: 1, cost: 12000, w: 9, h: 7, floor: ['#6b4f3a', '#624835'], wall: ['#b9b2a4', '#a7a093'] },
+  { n: 'Galpão industrial', zone: 'Periferia', desks: 10, rent: 2200, prest: 0, cost: 25000, w: 12, h: 9, floor: ['#4b4e52', '#46494d'], wall: ['#7a6a58', '#6c5d4d'] },
+  { n: 'Torre de vidro', zone: 'Centro Financeiro', desks: 16, rent: 12000, prest: 3, cost: 180000, w: 14, h: 10, floor: ['#d5dae2', '#ccd2db'], wall: ['#2c4a6e', '#25405f'], glass: true },
+];
+const TRAITS = {
+  normal: { n: 'Equilibrado', ico: '=', spd: 1, bug: .15, qa: 1 },
+  perf: { n: 'Perfeccionista', ico: '✓', spd: .75, bug: .04, qa: 1.5 },
+  caos: { n: 'Caótico', ico: '⚡', spd: 1.4, bug: .45, qa: .8 },
+};
+const FIRST = ['Ana', 'Bruno', 'Carla', 'Diego', 'Elisa', 'Fábio', 'Gabi', 'Hugo', 'Iara', 'João', 'Lara', 'Marcos', 'Nina', 'Otávio', 'Paula', 'Rafa', 'Sofia', 'Tiago', 'Vera', 'Yuri'];
+const LAST = ['Silva', 'Souza', 'Lima', 'Costa', 'Rocha', 'Alves', 'Nunes', 'Prado', 'Dias', 'Moura'];
+const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const TABS = [['dev', 'Desenvolvimento'], ['hw', 'Hardware'], ['mkt', 'Marketing'], ['fin', 'Finanças'], ['staff', 'Equipe e imóveis'], ['res', 'Pesquisa'], ['ip', 'Propriedades']];
+const MS_PER_DAY = [0, 450, 200, 80];
+const SAVE_KEY = 'devcity-save-v1';
+
+// ---------- Utilidades ----------
+const $ = s => document.querySelector(s);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmtN = v => Math.round(v).toLocaleString('pt-BR');
+const fmt$ = v => (v < 0 ? '−$' : '$') + fmtN(Math.abs(v));
+const fmt1 = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+const year = () => 1976 + Math.floor(S.day / 360);
+const infl = () => 1 + (year() - 1976) / 20;
+const tech = id => TECH.find(t => t.id === id);
+const genre = () => GENRES.find(g => g.id === (S.project?.genre || S.draft.genre));
+const ipOf = id => S.ips.find(i => String(i.id) === String(id));
+const norm = sl => { const s = sl.reduce((a, v) => a + v, 0); return s ? sl.map(v => v / s * 100) : [25, 25, 25, 25]; };
+const align = (cur, ideal) => Math.max(0, 1 - cur.reduce((a, v, i) => a + Math.abs(v - ideal[i]), 0) / 120);
+const expQ = y => .5 * TECH.filter(t => t.y <= y - 2).reduce((a, t) => a + t.q, 0);
+const pts = e => e.skill * TRAITS[e.trait].spd * (.4 + e.morale / 166) * (S.crunch ? 1.5 : 1) * .5;
+const teamOut = () => S.staff.reduce((a, e) => a + pts(e), 0);
+const draftTotal = () => Math.round(250 * (1 + (year() - 1976) / 6) * (1 + S.draft.feats.reduce((a, id) => a + tech(id).t, 0)));
+const estDays = () => Math.ceil((S.project ? Math.max(0, S.project.total - S.project.done) : draftTotal()) / Math.max(.1, teamOut()));
+const avgMorale = () => S.staff.reduce((a, e) => a + e.morale, 0) / S.staff.length;
+const monthlyCost = () => OFFICES[S.office].rent + S.staff.reduce((a, e) => a + e.sal, 0);
+const dividend = r => r.p * 250 * r.own / 100 * (r.sub ? 1 : .4);
+const rd = () => 80000 * (1 + (year() - 1980) / 10);
+const consoleMarket = () => 30000 * 1.05 ** (year() - 1980);
+const bestPower = () => SLOTS.reduce((a, [k]) => a + Math.max(...HW[k].filter(c => c[1] <= year()).map(c => c[2])), 0);
+const share = (power, price, cost) => clamp(.15 * (power / bestPower()) ** 2 * (cost * 1.4 / price) ** 1.3 * (.5 + S.rep / 100), 0, .6);
+function cash(v) { S.money += v; if (v >= 0) S.inM += v; else S.outM -= v; }
+function hwStats() {
+  const cs = SLOTS.map(([k]) => HW[k][S.hw[k]]);
+  const gen = cs.reduce((a, c) => a + Math.max(0, c[3]), 0), cool = cs.reduce((a, c) => a - Math.min(0, c[3]), 0);
+  return { power: cs.reduce((a, c) => a + c[2], 0), cost: cs.reduce((a, c) => a + c[4], 0), gen, cool, heat: gen - cool };
+}
+function newEmp() {
+  const skill = clamp(Math.round(rnd(2, 4.5 + OFFICES[S.office].prest * 1.6 + S.rep / 30)), 1, 10);
+  return { n: `${pick(FIRST)} ${pick(LAST)}`, trait: pick(['normal', 'normal', 'perf', 'caos']), skill, sal: Math.round((250 + skill * 170) * (1 + (year() - 1976) / 40) / 10) * 10 };
+}
+function newIp(n, fans = 0) { return { id: S.nextId++, n, fans, games: 0, sum: 0, last: -9999, legend: false, burned: false }; }
+function desks(o) {
+  const cols = Math.floor((o.w - 1) / 2);
+  return Array.from({ length: o.desks }, (_, i) => [1 + (i % cols) * 2, 1 + Math.floor(i / cols) * 2]);
+}
+function reindex(reset) {
+  const ds = desks(OFFICES[S.office]);
+  S.staff.forEach((e, i) => { e.desk = i; if (reset) { e.x = ds[i][0] + .6; e.y = ds[i][1] + 1.05; e.go = 0; } });
+}
+
+function newGame() {
+  return {
+    day: 0, money: 30000, rep: 10, fans: 0, rp: 0, speed: 0, last: 1, crunch: false, office: 0, debt: 0, nextId: 1, intro: false,
+    staff: [{ id: 0, n: 'Você (fundação)', trait: 'normal', skill: 5, sal: 0, morale: 90, x: 1.6, y: 2.05, go: 0, away: 0, desk: 0 }],
+    cands: [], researched: [], project: null, games: [], ips: [], hist: [], console: null,
+    inM: 0, outM: 0, lastIn: 0, lastOut: 0,
+    rivals: [
+      { n: 'Atomix Interactive', ip: 'Galaxy Raiders', p: 14, prev: 14, own: 0, fans: 4000, sub: false },
+      { n: 'Pixel Forge', ip: 'Reino de Cristal', p: 9, prev: 9, own: 0, fans: 2500, sub: false },
+      { n: 'Lunar Soft', ip: 'Turbo Lane', p: 6, prev: 6, own: 0, fans: 1500, sub: false },
+      { n: 'Bitmonk Studios', ip: 'Monk Fist', p: 11, prev: 11, own: 0, fans: 3000, sub: false },
+      { n: 'Kaiju Works', ip: 'Kaiju Smash', p: 18, prev: 18, own: 0, fans: 5000, sub: false },
+    ],
+    draft: { name: 'Meu Primeiro Jogo', ip: 'new', genre: 'acao', topic: 'Espaço', sl: [40, 15, 30, 15], feats: [] },
+    hw: { cpu: 1, midia: 1, frio: 1, ctrl: 0, price: 199, name: 'DevBox' },
+    mkt: { promise: false }, tab: 'dev',
+  };
+}
+
+// ---------- Modal, toasts e tempo (máquina de estados: pausado / rodando) ----------
+let S, dirty = true, tfilter = '', modalOpen = 0, mq = Promise.resolve();
+const running = () => S.speed > 0 && !modalOpen;
+function setSpeed(n) { if (n) S.last = n; S.speed = n; updateTime(); }
+function updateTime() {
+  document.body.classList.toggle('paused', !running());
+  for (const b of document.querySelectorAll('[data-speed]')) b.setAttribute('aria-pressed', +b.dataset.speed === S.speed);
+  $('#crunchTag').hidden = !S.crunch;
+}
+function modal(title, html, btns = [['Continuar']], lock = false) {
+  const show = () => new Promise(res => {
+    const d = $('#modal');
+    $('#mt').textContent = title; $('#mb').innerHTML = html;
+    $('#mf').replaceChildren(...btns.map(([label, val, cls], i) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.className = cls ?? (i === 0 ? 'primary' : '');
+      b.onclick = () => d.close(val ?? '');
+      return b;
+    }));
+    d.oncancel = e => { if (lock) e.preventDefault(); };
+    d.onclose = () => { modalOpen--; updateTime(); res(d.returnValue); };
+    d.returnValue = ''; modalOpen++; updateTime(); d.showModal();
+  });
+  return (mq = mq.then(show));
+}
+function toast(msg, kind = '') {
+  const t = document.createElement('div'), box = $('#toasts');
+  t.className = 'toast ' + kind; t.textContent = msg; box.prepend(t);
+  while (box.children.length > 4) box.lastChild.remove();
+  setTimeout(() => t.remove(), 6000);
+}
+function shake() { const s = $('#stage'); s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake'); }
+function markDirty(...tabs) { if (!tabs.length || tabs.includes(S.tab)) dirty = true; }
+function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch {} }
+function load() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch { return null; } }
+
+// ---------- Simulação ----------
+function tickDay() {
+  S.day++;
+  const p = S.project;
+  for (const e of S.staff) {
+    e.morale = clamp(e.morale + (S.crunch ? -1.6 : .5 + OFFICES[S.office].prest * .15), 0, 100);
+    const out = pts(e), tr = TRAITS[e.trait];
+    if (p?.phase === 'prod') { p.done += out; p.bugs += out * tr.bug; }
+    else if (p) p.bugs = Math.max(0, p.bugs - out * .35 * tr.qa);
+    S.rp += e.skill * .02 * (p ? 1 : 3);
+    if (!e.go && Math.random() < (e.morale < 50 ? .08 : .03)) { e.go = 1; e.away = 3000; }
+  }
+  if (p?.phase === 'prod' && p.done >= p.total) { p.phase = 'qa'; toast(`${p.name}: produção concluída. Fase de QA.`, 'good'); markDirty('dev'); }
+  if (p) { p.hype *= .996; p.lie *= .996; }
+  for (const g of S.games) if (g.left > 0) {
+    const sold = Math.min(g.left, Math.ceil(g.left * .035));
+    g.left -= sold; g.units += sold; g.rev += sold * g.ppu; cash(sold * g.ppu);
+  }
+  // crunch: burnout e vazamentos
+  for (const e of [...S.staff]) if (e.id && e.morale < 8 && Math.random() < .03) {
+    S.staff.splice(S.staff.indexOf(e), 1); reindex();
+    modal('Burnout', `<p>${esc(e.n)} pediu demissão por esgotamento depois de semanas de crunch.</p>`);
+    markDirty('staff');
+  }
+  if (S.crunch && avgMorale() < 30 && Math.random() < .02) {
+    S.rep = clamp(S.rep - 15, 0, 100);
+    if (p) p.hype *= .5;
+    modal('Vazamento para a imprensa', '<p>Funcionários exaustos vazaram documentos internos sobre o crunch. A reputação caiu 15 pontos, o hype do projeto caiu pela metade e contratar talentos ficou mais difícil.</p>');
+  }
+  if (S.day % 7 === 0) { S.hist.push({ h: p ? p.hype : 0, l: p ? p.hype + p.lie : 0, f: S.fans }); if (S.hist.length > 52) S.hist.shift(); }
+  if (S.day % 30 === 0) month();
+}
+
+function month() {
+  cash(-monthlyCost());
+  for (const r of S.rivals) {
+    r.prev = r.p; r.p = Math.max(1, r.p * (1 + (Math.random() - .46) * .1)); r.fans = Math.round(r.fans * 1.01);
+    if (r.own) cash(dividend(r));
+  }
+  for (const i of S.ips) if (i.legend) cash(i.fans * .3);
+  const c = S.console;
+  if (c) {
+    c.age++;
+    const u = Math.round(consoleMarket() * share(c.power, c.price, c.cost) * .97 ** c.age), loss = c.price < c.cost;
+    c.base += u; c.last = u; c.studios = Math.round(c.base / 3000 * (loss ? 1.5 : 1));
+    cash(u * (c.price - c.cost) + u * 8 * (loss ? 1.5 : 1)); // royalties: jogos de terceiros vendidos para quem comprou o console
+    if (c.defect && c.age === 3) redLight();
+  }
+  S.lastIn = S.inM; S.lastOut = S.outM; S.inM = S.outM = 0;
+  S.cands = [newEmp(), newEmp(), newEmp()];
+  if (S.money < 0) {
+    S.debt++;
+    if (S.debt >= 3) modal('Falência', '<p>Três meses seguidos no vermelho. Os credores fecharam o estúdio.</p>', [['Recomeçar em 1976']], true).then(() => { S = newGame(); S.intro = true; boot(); });
+    else toast(`Caixa negativo: ${3 - S.debt} ${3 - S.debt > 1 ? 'meses' : 'mês'} até a falência.`, 'bad');
+  } else S.debt = 0;
+  if (S.day % 360 === 0) newYear();
+  save();
+  markDirty('fin', 'hw', 'staff', 'ip', 'mkt', 'res');
+}
+
+function newYear() {
+  const y = year(), n = [
+    ...GENRES.filter(g => g.y === y).map(g => 'gênero ' + g.n),
+    ...TOPICS.filter(t => t.y === y).map(t => 'tema ' + t.n),
+    ...TECH.filter(t => t.y === y).map(t => t.n + ' (pesquisa)'),
+    ...SLOTS.flatMap(([k]) => HW[k].filter(c => c[1] === y).map(c => c[0] + ' (hardware)')),
+  ];
+  if (y === 1980) n.push('mercado de consoles');
+  const era = ERAS.find(e => e[1] === y);
+  if (era) toast(`Nova era: ${era[0]}`, 'good');
+  if (n.length) toast(`${y}: ${n.join(', ')}`);
+  markDirty('dev', 'hw', 'res', 'mkt');
+}
+
+async function redLight() {
+  const c = S.console, recall = Math.round(c.base * c.cost * .7);
+  const v = await modal('Luz vermelha', `<p>O ${esc(c.name)} está superaquecendo. Cerca de ${Math.round(hwFail(c) * 100)}% dos ${fmtN(c.base)} consoles vendidos falharam.</p><p>Um recall global custa ${fmt$(recall)}. Ignorar o defeito destrói a confiança na marca e tira o console das lojas.</p>`,
+    [[`Recall global (${fmt$(recall)})`, 'recall', 'danger'], ['Ignorar o defeito', 'ignore', '']], true);
+  if (!S.console) return;
+  if (v === 'recall') { cash(-recall); c.defect = false; S.rep = clamp(S.rep - 5, 0, 100); toast('Recall concluído. O console voltou às lojas sem defeito.', 'warn'); }
+  else { S.rep = clamp(S.rep - 35, 0, 100); S.fans = Math.round(S.fans * .6); S.console = null; toast(`${c.name} saiu do mercado. A reputação despencou.`, 'bad'); }
+  markDirty('hw');
+}
+const hwFail = c => clamp(.25 + .08 * c.heat, .25, .9);
+
+function launch() {
+  const p = S.project, y = year(), g = GENRES.find(x => x.id === p.genre);
+  let ip = S.ips.find(i => String(i.id) === String(p.ip) && !i.burned);
+  const tr = (p.feats.reduce((a, id) => a + tech(id).q, 0) + 2) / (expQ(y) + 2);
+  const al = align(norm(S.draft.sl), g.ideal), good = TOPICS.find(t => t.n === p.topic).good.includes(p.genre);
+  const fatigue = ip && S.day - ip.last < 720, mtx = p.feats.includes('micro');
+  const prev = S.games[0], repeat = prev && prev.genre === g.n && prev.topic === p.topic, sat = clamp((S.day - (prev?.day ?? -999)) / 180, .1, 1);
+  const skill = S.staff.reduce((a, e) => a + e.skill, 0) / S.staff.length / 10;
+  let score = 1 + 9 * (.35 * al + .15 * (good ? 1 : .4) + .3 * Math.min(1, tr) + .2 * skill) + (tr > 1 ? .4 : 0) - p.bugs / 30 - (fatigue ? 1.2 : 0) - (repeat ? 1 : 0) - (mtx ? .5 : 0) + rnd(-.5, .5);
+  score = Math.round(clamp(score, 1, 10) * 10) / 10;
+  const notes = [];
+  let hype = p.hype + p.lie;
+  if (p.lie > 10 && score < 8) { hype = 0; S.rep = clamp(S.rep - 15, 0, 100); S.fans = Math.round(S.fans * .85); notes.push(['bad', 'Overhype: o jogo não entregou o que o marketing prometeu. As vendas e a reputação desabaram.']); }
+  if (repeat) notes.push(['warn', `Mesma combinação do jogo anterior (${g.n} + ${esc(p.topic)}): a crítica achou repetitivo.`]);
+  if (sat < 1) notes.push(['warn', 'Mercado saturado: seu jogo anterior ainda está nas prateleiras, então as vendas caíram.']);
+  if (fatigue) notes.push(['warn', 'Fadiga da franquia: a sequência saiu cedo demais e perdeu pontos.']);
+  if (ip?.legend && score < 6) { ip.burned = true; ip.legend = false; ip.fans = 0; S.rep = clamp(S.rep - 20, 0, 100); notes.push(['bad', `Review bombing: usar ${esc(ip.n)} para vender um jogo fraco queimou a franquia.`]); }
+  if (p.bugs > 100) notes.push(['warn', `Lançado com ${Math.round(p.bugs)} bugs conhecidos.`]);
+  if (!ip) { ip = newIp(p.name); S.ips.push(ip); }
+  const units = Math.round(15000 * 1.07 ** (y - 1976) * (score / 10) ** 3 * 1.2 * (1 + hype / 100) * (1 + S.rep / 200) * (ip.legend ? 1.5 : 1) * (S.console ? 1.2 : 1) * sat + ip.fans * .6);
+  const ppu = (8 + (y - 1976) * .5 - (S.researched.includes('digital') ? 0 : 2)) * (mtx ? 1.3 : 1);
+  S.games.unshift({ n: p.name, ip: ip.id, genre: g.n, topic: p.topic, score, y, day: S.day, units: 0, left: units, rev: 0, ppu });
+  ip.games++; ip.sum += score; ip.last = S.day;
+  if (!ip.burned) ip.fans = Math.max(0, Math.round(ip.fans + units * .08 * (score - 5) / 5));
+  if (!ip.burned && !ip.legend && (score >= 9.5 || (ip.games >= 3 && ip.sum / ip.games >= 8.5))) {
+    ip.legend = true;
+    notes.push(['good', `${esc(ip.n)} virou um fenômeno cultural. Efeito buraco negro: a IP vende 50% mais, gera licenciamento todo mês e domina as feiras.`]);
+  }
+  S.fans = Math.max(0, Math.round(S.fans + units * .04 * (score - 4) / 6));
+  S.rep = clamp(S.rep + (score - 6) * 2, 0, 100);
+  S.project = null; S.draft.name = `Jogo ${S.games.length + 1}`;
+  const cls = score >= 7 ? 'good' : score >= 5 ? 'warn' : 'bad';
+  const verdict = score >= 9 ? 'Obra-prima.' : score >= 7 ? 'Muito divertido.' : score >= 5 ? 'Mediano.' : 'Passe longe.';
+  modal(`${p.name} chegou às lojas`, `<div class="review"><div class="score ${cls}">${fmt1(score)}</div><div><p><b>${verdict}</b></p><p class="muted">${g.n} · ${esc(p.topic)} · ${esc(ip.n)}</p><p>Projeção: ${fmtN(units)} cópias a ${fmt$(ppu)} cada.</p></div></div>${notes.map(([k, t]) => `<p class="note ${k}">${t}</p>`).join('')}`);
+  markDirty();
+}
+
+function campaign(i) {
+  const [n, y0, c0, g0] = ADS[i], p = S.project, c = c0 * infl();
+  if (!p || year() < y0 || S.money < c) return;
+  cash(-c);
+  const g = g0 * rnd(.8, 1.2);
+  p.hype += g; if (S.mkt.promise) p.lie += g;
+  toast(`${n}: +${Math.round(g * (S.mkt.promise ? 2 : 1))} de hype`);
+  markDirty();
+}
+
+// ---------- Ações dos painéis ----------
+const ACT = {
+  genre: id => { S.draft.genre = id; markDirty(); },
+  topic: n => { S.draft.topic = n; markDirty(); },
+  start: () => {
+    if (S.project) return;
+    const d = S.draft, ip = S.ips.find(i => String(i.id) === String(d.ip) && !i.burned);
+    S.project = { name: d.name.trim() || 'Sem título', ip: ip ? ip.id : 'new', genre: d.genre, topic: d.topic, feats: d.feats.filter(f => S.researched.includes(f)), total: draftTotal(), done: 0, bugs: 0, phase: 'prod', hype: 5 + (ip ? Math.min(60, ip.fans / 1000) : 0), lie: 0, armed: false, fair: false };
+    toast(`Produção de ${S.project.name} iniciada.`);
+    markDirty();
+  },
+  launch: () => { const p = S.project; if (p.bugs > 100 && !p.armed) { p.armed = true; markDirty(); } else launch(); },
+  ad: i => campaign(+i),
+  fair: () => {
+    const p = S.project, c = 50000 * infl();
+    if (!p || p.fair || S.money < c) return;
+    cash(-c); p.fair = true;
+    if (ipOf(p.ip)?.legend) { p.hype += 150; shake(); toast(`One more thing: ${p.name} roubou a feira. Os rivais adiaram seus lançamentos.`, 'good'); }
+    else { p.hype += 60 * rnd(.8, 1.2); toast('Apresentação na feira concluída: +60 de hype.'); }
+    markDirty();
+  },
+  buy: i => {
+    const r = S.rivals[i], lot = r.p * 1700;
+    if (S.money < lot || r.own >= 51) return;
+    cash(-lot); r.own += 17; r.p *= 1.04;
+    if (r.own >= 51) toast(`Você controla a ${r.n}. Decida o destino do estúdio.`, 'warn');
+    markDirty();
+  },
+  sell: i => { const r = S.rivals[i]; if (!r.own) return; cash(r.p * 1700 * .97); r.own -= 17; r.p *= .97; markDirty(); },
+  absorb: i => {
+    const [r] = S.rivals.splice(i, 1), ip = newIp(r.ip, r.fans);
+    ip.games = 1; ip.sum = 7; S.ips.push(ip); S.fans += Math.round(r.fans * .3);
+    toast(`${r.n} foi absorvida. A IP ${r.ip} agora é sua.`, 'good'); markDirty();
+  },
+  sub: i => { S.rivals[i].sub = true; toast(`${S.rivals[i].n} virou subsidiária: o lucro entra direto no seu caixa.`, 'good'); markDirty(); },
+  crunch: () => { S.crunch = !S.crunch; toast(S.crunch ? 'Crunch ativado: +50% de produção, a moral vai cair.' : 'Crunch encerrado.', S.crunch ? 'warn' : ''); updateTime(); markDirty(); },
+  hire: i => {
+    const o = OFFICES[S.office], c = S.cands[i];
+    if (!c || S.staff.length >= o.desks || S.money < c.sal) return;
+    cash(-c.sal); S.cands.splice(i, 1);
+    S.staff.push(Object.assign(c, { id: S.nextId++, morale: 80, x: o.w - .5, y: o.h / 2, go: 0, away: 0 }));
+    reindex(); toast(`${c.n} entrou para a equipe.`); markDirty();
+  },
+  fire: id => {
+    const i = S.staff.findIndex(e => String(e.id) === String(id));
+    if (i < 1) return;
+    const [e] = S.staff.splice(i, 1);
+    S.staff.forEach(x => { x.morale = Math.max(0, x.morale - 5); });
+    reindex(); toast(`${e.n} saiu da equipe. A moral caiu um pouco.`); markDirty();
+  },
+  move: i => {
+    const o = OFFICES[i];
+    if (S.money < o.cost || S.staff.length > o.desks) return;
+    cash(-o.cost); S.office = +i; reindex(true);
+    toast(`Nova sede: ${o.n} (${o.zone}).`, 'good'); markDirty();
+  },
+  research: id => {
+    const t = tech(id);
+    if (S.rp < t.rp || S.researched.includes(id)) return;
+    S.rp -= t.rp; S.researched.push(id); toast(`Pesquisa concluída: ${t.n}.`, 'good'); markDirty();
+  },
+  hwlaunch: () => {
+    const st = hwStats(), cost = rd();
+    if (S.money < cost) return;
+    cash(-cost);
+    if (S.console) toast(`${S.console.name} foi descontinuado.`);
+    S.console = { name: S.hw.name.trim() || 'Console', power: st.power, cost: st.cost, price: S.hw.price, heat: st.heat, defect: st.heat > 0, base: 0, last: 0, age: 0, studios: 0 };
+    toast(`${S.console.name} chegou às lojas.`, 'good'); markDirty();
+  },
+};
+
+// ---------- Valores atualizados a cada dia ----------
+const LIVE = {
+  money: () => fmt$(S.money),
+  date: () => `${S.day % 30 + 1} ${MONTHS[Math.floor(S.day % 360 / 30)]} ${year()}`,
+  rep: () => Math.round(S.rep),
+  fans: () => fmtN(S.fans),
+  rp: () => fmtN(Math.floor(S.rp)),
+  office: () => `${OFFICES[S.office].n} · ${OFFICES[S.office].zone}`,
+  hype: () => S.project ? fmtN(S.project.hype + S.project.lie) : '—',
+  prog: () => S.project ? Math.min(1, S.project.done / S.project.total) : 0,
+  phase: () => !S.project ? '' : S.project.phase === 'prod' ? `Produção · ${Math.floor(Math.min(1, S.project.done / S.project.total) * 100)}%` : 'Polimento e QA · os bugs caem a cada dia',
+  bugs: () => String(Math.round(S.project?.bugs || 0)).padStart(4, '0'),
+  est: () => S.project?.phase === 'qa' ? 'Produção concluída' : `≈ ${estDays()} dias de produção com a equipe atual`,
+  estv: () => S.project?.phase === 'qa' ? 0 : estDays(),
+  sl: i => Math.round(norm(S.draft.sl)[i]) + '%',
+  align: () => Math.round(align(norm(S.draft.sl), genre().ideal) * 100) + '%',
+  radar: () => {
+    const poly = vals => vals.map((v, i) => rp(66 * Math.min(v, 60) / 60, i).join(',')).join(' ');
+    return `<polygon class="r-ideal" points="${poly(genre().ideal)}"/><polygon class="r-cur" points="${poly(norm(S.draft.sl))}"/>`;
+  },
+  warn: () => { const g = genre(), cur = norm(S.draft.sl); return AXES.map((a, i) => Math.abs(cur[i] - g.ideal[i]) > 20 ? `<li>${a} ${cur[i] > g.ideal[i] ? 'alto' : 'baixo'} demais para ${g.n}</li>` : '').join(''); },
+  chart: () => {
+    const h = S.hist;
+    if (h.length < 2) return '<text x="300" y="95" text-anchor="middle" class="c-empty">O gráfico começa na segunda semana de jogo.</text>';
+    const mH = Math.max(20, ...h.map(p => p.l)), mF = Math.max(20, ...h.map(p => p.f)), n = h.length - 1;
+    const line = (k, m) => h.map((p, i) => `${(20 + i * 560 / n).toFixed(1)},${(160 - p[k] / m * 140).toFixed(1)}`);
+    return `<polygon class="c-gap" points="${line('l', mH).join(' ')} ${line('h', mH).reverse().join(' ')}"/><polyline class="c-fans" points="${line('f', mF).join(' ')}"/><polyline class="c-prom" points="${line('l', mH).join(' ')}"/><polyline class="c-hype" points="${line('h', mH).join(' ')}"/>`;
+  },
+  morale: id => S.staff.find(e => String(e.id) === id)?.morale ?? 0,
+  avgm: () => Math.round(avgMorale()),
+  lastIn: () => fmt$(S.lastIn), lastOut: () => fmt$(S.lastOut), burn: () => fmt$(monthlyCost()),
+  resbadge: () => TECH.filter(t => t.y <= year() && !S.researched.includes(t.id) && S.rp >= t.rp).length || '',
+  hwprice: () => fmt$(S.hw.price),
+  hwbe: () => {
+    const { cost } = hwStats(), price = S.hw.price, max = Math.max(cost, price) * 1.1, loss = price < cost;
+    return `<div class="be" aria-hidden="true"><div class="bar" style="width:${cost / max * 100}%"></div><div class="bar price${loss ? ' loss' : ''}" style="width:${price / max * 100}%"></div><div class="line" style="left:${cost / max * 100}%"></div></div>
+      <p class="small">Cinza: custo ${fmt$(cost)} · ${loss ? 'vermelho' : 'verde'}: preço ${fmt$(price)} · linha: ponto de equilíbrio.<br>${loss ? `<b class="bad">Prejuízo de ${fmt$(cost - price)} por unidade.</b> Estratégia loss leader: mais estúdios licenciam jogos para o console.` : `Margem de ${fmt$(price - cost)} por unidade.`}</p>`;
+  },
+  hwproj: () => {
+    const st = hwStats(), u = Math.round(consoleMarket() * share(st.power, S.hw.price, st.cost));
+    return `Projeção: ≈ ${fmtN(u)} consoles por mês e ${fmtN(u * 12 / 3000 * (S.hw.price < st.cost ? 1.5 : 1))} estúdios interessados em licenciar no primeiro ano.`;
+  },
+};
+const rp = (r, i) => { const a = -Math.PI / 2 + i * Math.PI / 2; return [+(110 + r * Math.cos(a)).toFixed(1), +(90 + r * Math.sin(a)).toFixed(1)]; };
+
+function refreshLive() {
+  for (const el of document.querySelectorAll('[data-live]')) {
+    const [k, a] = el.dataset.live.split(':'), v = LIVE[k](a);
+    if (el.tagName === 'METER' || el.tagName === 'PROGRESS') el.value = v;
+    else if ('html' in el.dataset) el.innerHTML = v;
+    else el.textContent = v;
+  }
+  $('#money').classList.toggle('neg', S.money < 0);
+  $('#launch')?.classList.toggle('risk', (S.project?.bugs || 0) > 100);
+}
+
+// ---------- Abas ----------
+const tag = t => `<span class="tag ${t}"><span aria-hidden="true">${TRAITS[t].ico}</span> ${TRAITS[t].n}</span>`;
+const VIEWS = {
+  dev() {
+    const d = S.draft, p = S.project, y = year(), lk = p ? 'disabled' : '', q = tfilter.toLowerCase().trim();
+    const feats = TECH.filter(t => S.researched.includes(t.id));
+    return `<div class="dev">
+    <section class="col"><h3 class="eyebrow">1 · Pré-produção</h3>
+      <label class="field">Nome do jogo<input id="d-name" data-bind="draft.name" value="${esc(d.name)}" maxlength="40" ${lk}></label>
+      <label class="field">Franquia<select id="d-ip" data-bind="draft.ip" ${lk}><option value="new">Nova IP</option>${S.ips.filter(i => !i.burned).map(i => `<option value="${i.id}" ${String(d.ip) === String(i.id) ? 'selected' : ''}>${esc(i.n)} (sequência${i.legend ? ', lendária' : ''})</option>`).join('')}</select></label>
+      <p class="label">Gênero</p>
+      <div class="chips">${GENRES.map(g => `<button class="chip${g.id === d.genre ? ' on' : ''}" id="g-${g.id}" data-act="genre" data-a="${g.id}" aria-pressed="${g.id === d.genre}" ${g.y > y || p ? 'disabled' : ''}>${g.n}${g.y > y ? ` <small>${g.y}</small>` : ''}</button>`).join('')}</div>
+      <p class="label">Tema · ★ combina com ${genre().n}</p>
+      <input id="tfilter" type="search" placeholder="Buscar tema ou gênero" value="${esc(tfilter)}" aria-label="Buscar tema ou gênero">
+      <div class="chips">${TOPICS.map((t, i) => {
+        if (t.y > y) return '';
+        const good = t.good.includes(d.genre), key = `${t.n} ${t.good.map(id => GENRES.find(g => g.id === id).n).join(' ')}`.toLowerCase();
+        return `<button class="chip${good ? ' good' : ''}${t.n === d.topic ? ' on' : ''}" id="t-${i}" data-act="topic" data-a="${t.n}" data-name="${esc(key)}" aria-pressed="${t.n === d.topic}" ${p ? 'disabled' : ''} ${q && !key.includes(q) ? 'hidden' : ''}>${good ? '★ ' : ''}${t.n}</button>`;
+      }).join('')}</div>
+    </section>
+    <section class="col"><h3 class="eyebrow">2 · Produção</h3>
+      <div class="prod">
+        <div>${AXES.map((a, i) => `<label class="field"><span>${a} <output data-live="sl:${i}"></output></span><input type="range" id="sl-${i}" min="0" max="100" value="${d.sl[i]}" data-bind="draft.sl.${i}" data-num></label>`).join('')}</div>
+        <figure class="radar"><svg viewBox="0 0 220 180" role="img" aria-label="Foco atual da equipe comparado ao ideal do gênero">
+          ${[22, 44, 66].map(r => `<polygon class="r-ring" points="${[0, 1, 2, 3].map(i => rp(r, i).join(',')).join(' ')}"/>`).join('')}
+          ${AXES.map((a, i) => { const [x, yy] = rp(66, i), [lx, ly] = rp(80, i); return `<line class="r-axis" x1="110" y1="90" x2="${x}" y2="${yy}"/><text class="r-lbl" x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="middle">${a}</text>`; }).join('')}
+          <g data-live="radar" data-html></g></svg>
+          <figcaption><span class="key ideal"></span>Ideal para ${genre().n} <span class="key cur"></span>Seu foco · alinhamento <b data-live="align"></b></figcaption></figure>
+      </div>
+      <ul class="warn" data-live="warn" data-html></ul>
+      <p class="label">Recursos pesquisados</p>
+      ${feats.length ? `<div class="feats">${feats.map(t => `<label class="check"><input type="checkbox" id="f-${t.id}" data-feat="${t.id}" ${(p ? p.feats : d.feats).includes(t.id) ? 'checked' : ''} ${lk}> ${t.n} <small>${t.d || `+${Math.round(t.t * 100)}% de tempo`}</small></label>`).join('')}</div>` : '<p class="small muted">Pesquise recursos na aba Pesquisa para usá-los nos jogos.</p>'}
+      <div class="est"><span data-live="est"></span><meter data-live="estv" min="0" max="240" low="90" high="160" optimum="0"></meter></div>
+      <button class="primary wide" id="start" data-act="start" ${p ? 'disabled' : ''}>${p ? 'Projeto em andamento' : 'Iniciar produção'}</button>
+    </section>
+    <section class="col"><h3 class="eyebrow">3 · Polimento e QA</h3>
+      ${p ? `<h4 class="pname">${esc(p.name)}</h4><p class="small muted">${genre().n} · ${esc(p.topic)}${p.ip !== 'new' ? ' · sequência' : ''}</p>
+        <p class="small" data-live="phase"></p><progress data-live="prog" max="1"></progress>
+        <div class="seg"><span data-live="bugs"></span><small class="muted">bugs conhecidos</small></div>
+        <p class="small">Hype acumulado: <b data-live="hype"></b>. O foco ao lado ainda pode ser ajustado até o lançamento.</p>
+        <button id="launch" class="primary" data-act="launch" ${p.phase !== 'qa' ? 'disabled' : ''}>${p.phase !== 'qa' ? 'Aguardando o fim da produção' : p.armed ? 'Confirmar lançamento com bugs' : 'Lançar jogo'}</button>
+        ${p.armed ? '<p class="small warn">Acima de 100 bugs a crítica não perdoa. Clique de novo para confirmar ou espere o QA.</p>' : ''}`
+      : `<p class="empty">Nenhum jogo em produção. Escolha gênero e tema e clique em Iniciar produção.</p>${S.games[0] ? `<p class="small">Último lançamento: <b>${esc(S.games[0].n)}</b> · nota ${fmt1(S.games[0].score)}</p>` : ''}`}
+    </section></div>`;
+  },
+
+  hw() {
+    const y = year();
+    if (y < 1980) return '<p class="empty">O mercado de consoles abre em 1980. Até lá, foque em software.</p>';
+    const h = S.hw, st = hwStats(), c = S.console, hue = clamp(220 - st.gen / Math.max(.5, st.cool) * 200, 0, 220);
+    return `<div class="hw">
+    <section class="blueprint"><h3 class="eyebrow">Projeto do console</h3>
+      <label class="field">Nome<input id="hw-name" data-bind="hw.name" maxlength="24" value="${esc(h.name)}"></label>
+      ${SLOTS.map(([k, n]) => `<label class="field">${n}<select id="hw-${k}" data-bind="hw.${k}" data-num data-rerender>${HW[k].map((p, i) => p[1] <= y ? `<option value="${i}" ${i === h[k] ? 'selected' : ''}>${p[0]} · ${fmt$(p[4])}${p[3] < 0 ? ` · resfria ${-p[3]}` : p[3] ? ` · calor ${p[3]}` : ''}</option>` : '').join('')}</select></label>`).join('')}
+      <div class="console${st.heat > 0 ? ' hot' : ''}" style="--heatc: hsl(${hue} 90% 55%)" role="img" aria-label="Mapa de calor: ${st.heat > 0 ? 'superaquecimento' : 'temperatura sob controle'}">${esc(h.name)}</div>
+      <p class="small">${st.heat > 0 ? `<b class="bad">Superaquecimento:</b> calor ${st.gen} contra refrigeração ${st.cool}. Risco de falha em massa depois do lançamento.` : `Calor ${st.gen} · refrigeração ${st.cool}: estável.`}</p>
+    </section>
+    <section><h3 class="eyebrow">Preço e ecossistema</h3>
+      <p>Potência: <b>${Math.round(st.power / bestPower() * 100)}%</b> do estado da arte · custo por unidade: <b>${fmt$(st.cost)}</b></p>
+      <label class="field"><span>Preço de venda <output data-live="hwprice"></output></span><input type="range" id="hw-price" min="20" max="999" step="5" value="${h.price}" data-bind="hw.price" data-num></label>
+      <div data-live="hwbe" data-html></div>
+      <p class="small" data-live="hwproj"></p>
+      <button class="primary" id="hw-launch" data-act="hwlaunch" ${S.money < rd() ? 'disabled' : ''}>Lançar console · P&amp;D ${fmt$(rd())}</button>
+      ${c ? `<div class="card current" style="margin-top:12px"><b>${esc(c.name)} nas lojas</b><span>${fmtN(c.base)} consoles vendidos · ${fmtN(c.last)} no último mês</span><span>${fmt$(c.price)} por unidade (custo ${fmt$(c.cost)}) · ${c.studios} estúdios licenciados</span>${c.defect ? '<span class="bad">Defeito térmico não corrigido</span>' : ''}</div>` : ''}
+    </section></div>`;
+  },
+
+  mkt() {
+    const p = S.project, y = year(), f = infl();
+    return `<div class="kpis">
+      <div><span class="label">Hype do projeto</span><b data-live="hype"></b></div>
+      <div><span class="label">Fãs do estúdio</span><b data-live="fans"></b></div>
+      <div><span class="label">Reputação</span><b data-live="rep"></b></div></div>
+    <figure class="chart"><svg viewBox="0 0 600 180" role="img" aria-label="Hype real, hype prometido e fãs nas últimas 52 semanas">
+      <defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="hatch-line" width="2" height="6"/></pattern></defs>
+      <line class="c-base" x1="20" x2="580" y1="160" y2="160"/><g data-live="chart" data-html></g></svg>
+      <figcaption><span class="key hype"></span>Hype real <span class="key prom"></span>Hype prometido (área hachurada = promessa sem entrega) <span class="key fans"></span>Fãs · escalas relativas, últimas 52 semanas</figcaption></figure>
+    <h3 class="eyebrow">Campanhas${p ? ' para ' + esc(p.name) : ''}</h3>
+    ${p ? '' : '<p class="small muted">Inicie a produção de um jogo para investir em marketing.</p>'}
+    <div class="adlist">${ADS.map(([n, y0, c, g], i) => `<button id="ad-${i}" data-act="ad" data-a="${i}" ${!p || y < y0 || S.money < c * f ? 'disabled' : ''}><b>${n}</b><small>${y < y0 ? 'Disponível em ' + y0 : `${fmt$(c * f)} · +${g} de hype`}</small></button>`).join('')}
+      <button id="ad-fair" data-act="fair" ${!p || y < 1995 || p.fair || S.money < 50000 * f ? 'disabled' : ''}><b>Conferência na feira</b><small>${y < 1995 ? 'Disponível em 1995' : p?.fair ? 'Já apresentado' : `${fmt$(50000 * f)} · +60 de hype (IP lendária: muito mais)`}</small></button></div>
+    <label class="check risk"><input type="checkbox" id="promise" data-bind="mkt.promise" ${S.mkt.promise ? 'checked' : ''}> Prometer recursos revolucionários</label>
+    <p class="small muted">O hype das campanhas dobra, mas a diferença fica marcada no gráfico. Se o jogo sair com nota abaixo de 8, a promessa vira escândalo e as vendas e a reputação desabam.</p>`;
+  },
+
+  fin() {
+    return `<div class="kpis">
+      <div><span class="label">Caixa</span><b data-live="money"></b></div>
+      <div><span class="label">Receita no mês passado</span><b data-live="lastIn"></b></div>
+      <div><span class="label">Despesas no mês passado</span><b data-live="lastOut"></b></div>
+      <div><span class="label">Aluguel e salários por mês</span><b data-live="burn"></b></div></div>
+    <h3 class="eyebrow">Bolsa de estúdios rivais</h3>
+    <div class="scroll"><table class="tbl"><thead><tr><th>Estúdio</th><th class="num">Ação</th><th>Sua parte</th><th class="num">Dividendos/mês</th><th>Ordens</th></tr></thead><tbody>
+    ${S.rivals.map((r, i) => {
+      const lot = r.p * 1700, ch = (r.p / r.prev - 1) * 100, host = r.own >= 51 && !r.sub;
+      return `<tr class="${host ? 'hostile' : ''}"><th scope="row">${r.n}<small>IP: ${r.ip}</small></th>
+        <td class="num">$${r.p.toFixed(2).replace('.', ',')}<small class="${ch >= 0 ? 'up' : 'down'}">${ch >= 0 ? '▲' : '▼'} ${fmt1(Math.abs(ch))}%</small></td>
+        <td><span class="donut" style="--v:${r.own}" aria-hidden="true"></span> ${r.own}%</td>
+        <td class="num">${fmt$(dividend(r))}</td>
+        <td><div class="acts">${host ? `<span class="hostile-tag">Aquisição hostil</span><button class="danger" id="abs-${i}" data-act="absorb" data-a="${i}">Absorver estúdio</button><button id="sub-${i}" data-act="sub" data-a="${i}">Manter subsidiária</button>`
+          : r.sub ? '<span class="muted">Subsidiária · lucro integral</span>'
+          : `<button id="buy-${i}" data-act="buy" data-a="${i}" ${S.money < lot ? 'disabled' : ''}>Comprar 17% · ${fmt$(lot)}</button>${r.own ? `<button id="sell-${i}" data-act="sell" data-a="${i}">Vender 17%</button>` : ''}`}</div></td></tr>`;
+    }).join('') || '<tr><td colspan="5">Você absorveu todos os rivais.</td></tr>'}
+    </tbody></table></div>
+    <p class="small muted">Cada lote compra 17% do estúdio. Com 51% você decide: absorver (leva a IP e os fãs) ou manter como subsidiária (recebe todo o lucro mensal).</p>`;
+  },
+
+  staff() {
+    const o = OFFICES[S.office], full = S.staff.length >= o.desks;
+    return `<div class="crunch${S.crunch ? ' on' : ''}">
+      <button id="crunch" data-act="crunch" aria-pressed="${S.crunch}" class="${S.crunch ? 'danger' : ''}">${S.crunch ? 'Encerrar crunch' : 'Ativar crunch'}</button>
+      <p class="small">Horas extras obrigatórias: +50% de produção, mas a moral despenca. Moral muito baixa causa burnout e vazamentos para a imprensa. Moral média: <b data-live="avgm"></b>/100.</p></div>
+    <h3 class="eyebrow">Equipe · ${S.staff.length} de ${o.desks} mesas</h3>
+    <div class="scroll"><table class="tbl"><thead><tr><th>Nome</th><th>Perfil</th><th class="num">Talento</th><th>Moral</th><th class="num">Salário</th><th></th></tr></thead><tbody>
+    ${S.staff.map(e => `<tr><th scope="row">${esc(e.n)}</th><td>${tag(e.trait)}</td><td class="num">${e.skill}/10</td><td><meter data-live="morale:${e.id}" min="0" max="100" low="30" high="60" optimum="100" aria-label="Moral de ${esc(e.n)}"></meter></td><td class="num">${fmt$(e.sal)}</td><td>${e.id ? `<button id="fire-${e.id}" data-act="fire" data-a="${e.id}">Demitir</button>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <h3 class="eyebrow">Candidatos do mês</h3>
+    ${full ? '<p class="small muted">Todas as mesas estão ocupadas. Mude para um imóvel maior para contratar.</p>' : ''}
+    <div class="cards">${S.cands.map((c, i) => `<div class="card"><b>${esc(c.n)}</b>${tag(c.trait)}<span>Talento ${c.skill}/10 · ${fmt$(c.sal)}/mês</span><button id="hire-${i}" data-act="hire" data-a="${i}" ${full || S.money < c.sal ? 'disabled' : ''}>Contratar</button></div>`).join('') || '<p class="small muted">Novos candidatos no próximo mês.</p>'}</div>
+    <p class="small muted">Perfeccionistas trabalham devagar e quase não geram bugs. Caóticos são rápidos e enchem o código de erros.</p>
+    <h3 class="eyebrow">Imóveis</h3>
+    <div class="cards">${OFFICES.map((x, i) => `<div class="card${i === S.office ? ' current' : ''}"><b>${x.n}</b><span>${x.zone} · ${x.desks} mesas</span><span>Aluguel ${fmt$(x.rent)}/mês · prestígio ${'★'.repeat(x.prest) || 'nenhum'}</span>${i === S.office ? '<span class="pill">Sede atual</span>' : `<button id="move-${i}" data-act="move" data-a="${i}" ${S.money < x.cost || S.staff.length > x.desks ? 'disabled' : ''}>Mudar · ${fmt$(x.cost)}</button>`}</div>`).join('')}</div>
+    <p class="small muted">Prestígio atrai candidatos mais talentosos e melhora a moral.</p>`;
+  },
+
+  res() {
+    const y = year();
+    return `<p>Pontos de pesquisa: <b data-live="rp"></b> PP. <span class="small muted">Toda a equipe gera pesquisa; sem projeto em andamento, gera o triplo.</span></p>
+    <div id="tl" class="timeline">${ERAS.map(([n, a, b]) => `<section class="era${y >= a && y <= b ? ' now' : ''}"><h3>${n}<small>${a}–${b > 2050 ? 'hoje' : b}</small></h3>
+      <p class="genres">${GENRES.filter(g => g.y >= a && g.y <= b).map(g => `<span class="pill${g.y > y ? ' off' : ''}">${g.n}</span>`).join('')}</p>
+      ${TECH.filter(t => t.y >= a && t.y <= b).map(t => { const done = S.researched.includes(t.id), lk = t.y > y;
+        return `<div class="tech${done ? ' done' : lk ? ' locked' : ''}"><b>${t.n}</b><small>${t.y} · ${t.d || `+${Math.round(t.t * 100)}% de tempo, qualidade +${String(t.q).replace('.', ',')}`}</small>${done ? '<span class="ok">Pesquisado</span>' : lk ? `<span class="small muted">Bloqueado até ${t.y}</span>` : `<button id="r-${t.id}" data-act="research" data-a="${t.id}" ${S.rp < t.rp ? 'disabled' : ''}>Pesquisar · ${t.rp} PP</button>`}</div>`; }).join('')}
+    </section>`).join('')}</div>
+    <p class="small muted">A crítica compara seus recursos com o que já existe na época. Jogos sem tecnologia recente perdem nota.</p>`;
+  },
+
+  ip() {
+    if (!S.ips.length) return '<p class="empty">Lance seu primeiro jogo para criar uma propriedade intelectual.</p>';
+    const mf = Math.max(1, ...S.ips.map(i => i.fans));
+    return `<div class="ips">${S.ips.map(i => `<article class="ipc${i.legend ? ' legend' : ''}${i.burned ? ' burned' : ''}"><h4>${esc(i.n)}</h4>
+      <span class="pill">${i.burned ? 'Queimada por review bombing' : i.legend ? 'Fenômeno cultural' : `${i.games} jogo${i.games === 1 ? '' : 's'}`}</span>
+      <label class="small">Fidelidade · ${fmtN(i.fans)} fãs<meter min="0" max="${mf}" value="${i.fans}"></meter></label>
+      <label class="small">Nota média · ${i.games ? fmt1(i.sum / i.games) : '—'}<meter min="0" max="10" low="5" high="7.5" optimum="10" value="${i.games ? i.sum / i.games : 0}"></meter></label>
+      ${!i.burned && S.day - i.last < 720 ? '<p class="small warn">Fadiga: outra sequência antes de 2 anos perde nota.</p>' : ''}
+      ${i.legend ? `<p class="small">Licenciamento transmídia: ${fmt$(i.fans * .3)}/mês</p>` : ''}</article>`).join('')}</div>
+    <h3 class="eyebrow">Arquivo de lançamentos</h3>
+    <div class="scroll"><table class="tbl"><thead><tr><th>Jogo</th><th>Ano</th><th>Gênero e tema</th><th class="num">Nota</th><th class="num">Cópias</th><th class="num">Receita</th><th>Status</th></tr></thead><tbody>
+    ${S.games.map(g => `<tr><th scope="row">${esc(g.n)}</th><td>${g.y}</td><td>${g.genre} · ${esc(g.topic)}</td><td class="num">${fmt1(g.score)}</td><td class="num">${fmtN(g.units)}</td><td class="num">${fmt$(g.rev)}</td><td>${g.left > 0 ? 'À venda' : 'Fora de catálogo'}</td></tr>`).join('') || '<tr><td colspan="7">Nenhum jogo lançado ainda.</td></tr>'}
+    </tbody></table></div>`;
+  },
+};
+
+function renderTab() {
+  const tp = $('#tp'), f = document.activeElement?.id, top = tp.scrollTop, tl = $('#tl')?.scrollLeft;
+  tp.innerHTML = VIEWS[S.tab]();
+  tp.scrollTop = top;
+  if (tl != null && $('#tl')) $('#tl').scrollLeft = tl;
+  if (f && tp.querySelector('#' + CSS.escape(f))) tp.querySelector('#' + CSS.escape(f)).focus({ preventScroll: true });
+  refreshLive();
+}
+function selectTab(id, focus) {
+  S.tab = id;
+  for (const b of $('#tabs').children) { const on = b.dataset.tab === id; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; }
+  $('#tp').setAttribute('aria-labelledby', 'tab-' + id);
+  $('#panel').classList.remove('collapsed'); $('#collapse').setAttribute('aria-expanded', true); $('#collapse').textContent = 'Recolher';
+  renderTab(); $('#tp').scrollTop = 0;
+  if (focus) $('#tab-' + id).focus();
+}
+
+// ---------- Escritório isométrico (canvas) ----------
+const cv = $('#office'), ctx = cv.getContext('2d');
+const TCOL = { normal: '#6cc4ff', perf: '#5ad49a', caos: '#ff9a3c' }, SKIN = ['#f1c7a3', '#d9a47c', '#a86f4c', '#7a4b32', '#ffdbb8'];
+let TW = 40, TH = 20, OX = 0, OY = 0;
+const iso = (x, y) => [OX + (x - y) * TW / 2, OY + (x + y) * TH / 2];
+const up = ([x, y], h) => [x, y - h];
+function poly(ps, fill) { ctx.beginPath(); ps.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); }
+function box(x, y, w, d, h, [top, left, right], z = 0) {
+  const P = (X, Y) => up(iso(X, Y), z), a = P(x, y + d), b = P(x + w, y + d), r = P(x + w, y), t = P(x, y);
+  poly([a, b, up(b, h), up(a, h)], left);
+  poly([b, r, up(r, h), up(b, h)], right);
+  poly([up(t, h), up(r, h), up(b, h), up(a, h)], top);
+}
+function moveStaff(dt) {
+  const o = OFFICES[S.office], ds = desks(o);
+  for (const e of S.staff) {
+    const d = ds[e.desk] || ds[0], [tx, ty] = e.go ? [o.w - 1.55 + (e.id % 3) * .25, o.h - .6] : [d[0] + .6, d[1] + 1.05];
+    const dx = tx - e.x, dy = ty - e.y, dist = Math.hypot(dx, dy), step = dt * .0022;
+    if (dist > step) { e.x += dx / dist * step; e.y += dy / dist * step; }
+    else { e.x = tx; e.y = ty; if (e.go && (e.away -= dt) <= 0) e.go = 0; }
+  }
+}
+function draw(now) {
+  const W = cv.width, H = cv.height;
+  if (!W || !H) return;
+  const o = OFFICES[S.office], n = o.w + o.h;
+  TW = Math.min(W * .94 * 2 / n, H * .9 / (n / 4 + .75)); TH = TW / 2;
+  OX = W / 2 + (o.h - o.w) * TW / 4; OY = (H - (n * TH / 2 + TW * .75)) / 2 + TW * .75;
+  ctx.fillStyle = S.crunch ? '#070a12' : '#121725'; ctx.fillRect(0, 0, W, H);
+  const wh = TW * .75, win = S.crunch ? '#18264a' : '#86b8e3';
+  poly([iso(0, 0), iso(o.w, 0), up(iso(o.w, 0), wh), up(iso(0, 0), wh)], o.wall[0]);
+  poly([iso(0, 0), iso(0, o.h), up(iso(0, o.h), wh), up(iso(0, 0), wh)], o.wall[1]);
+  const gap = o.glass ? 1 : 2, ww = o.glass ? .85 : .9, h1 = wh * (o.glass ? .1 : .3), h2 = wh * (o.glass ? .95 : .8);
+  for (let x = .5; x + ww < o.w; x += gap) poly([up(iso(x, 0), h1), up(iso(x + ww, 0), h1), up(iso(x + ww, 0), h2), up(iso(x, 0), h2)], win);
+  for (let y = .5; y + ww < o.h; y += gap) poly([up(iso(0, y), h1), up(iso(0, y + ww), h1), up(iso(0, y + ww), h2), up(iso(0, y), h2)], win);
+  for (let x = 0; x < o.w; x++) for (let y = 0; y < o.h; y++) poly([iso(x, y), iso(x + 1, y), iso(x + 1, y + 1), iso(x, y + 1)], o.floor[(x + y) & 1]);
+  const items = [], dh = TW * .18, working = S.project && running();
+  desks(o).forEach(([dx, dy], i) => items.push([dx + dy + .9, () => {
+    const e = S.staff.find(s => s.desk === i), on = e && S.project && Math.hypot(e.x - dx - .6, e.y - dy - 1.05) < .15;
+    box(dx, dy, 1.2, .6, dh, ['#b58a5e', '#7d5c3e', '#946d4a']);
+    box(dx + .3, dy + .12, .6, .08, TW * .22, ['#222833', on ? `hsl(195 85% ${52 + (working ? 8 * Math.sin(now / 140 + i) : 0)}%)` : '#2a3140', '#1b2029'], dh);
+  }]));
+  items.push([o.w + o.h - 2.6, () => box(o.w - 1.6, o.h - 1.6, .6, .6, TW * .42, ['#d7d9de', '#8e9199', '#a7aab2'])]);
+  items.push([o.h - .4, () => { box(.25, o.h - .9, .5, .5, TW * .14, ['#7a4a2e', '#5c3622', '#6b3f28']); const [px, py] = iso(.5, o.h - .65); ctx.fillStyle = '#3f9a5c'; ctx.beginPath(); ctx.arc(px, py - TW * .3, TW * .2, 0, 7); ctx.fill(); }]);
+  for (const e of S.staff) items.push([e.x + e.y, () => {
+    const [sx, by] = iso(e.x, e.y), s = TW / 40, atDesk = !e.go, sy = by - (atDesk && working ? Math.abs(Math.sin(now / 180 + e.id)) * s : 0);
+    ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(sx, by, 6 * s, 3 * s, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = TCOL[e.trait]; ctx.beginPath(); ctx.roundRect(sx - 4.5 * s, sy - 17 * s, 9 * s, 14 * s, 3.5 * s); ctx.fill();
+    ctx.fillStyle = SKIN[e.id % SKIN.length]; ctx.beginPath(); ctx.arc(sx, sy - 21 * s, 4.2 * s, 0, 7); ctx.fill();
+    if (e.morale < 25) { ctx.fillStyle = '#ff5f6d'; ctx.font = `700 ${11 * s}px sans-serif`; ctx.textAlign = 'center'; ctx.fillText('!', sx, sy - 28 * s); }
+  }]);
+  items.sort((a, b) => a[0] - b[0]).forEach(([, f]) => f());
+}
+
+// ---------- Laço principal e eventos ----------
+let acc = 0, lastT = performance.now();
+function frame(now) {
+  const dt = Math.min(250, now - lastT); lastT = now;
+  if (running()) {
+    acc += dt; let ticked = false;
+    while (running() && acc >= MS_PER_DAY[S.speed]) { acc -= MS_PER_DAY[S.speed]; tickDay(); ticked = true; }
+    if (ticked) refreshLive();
+    moveStaff(dt * S.speed);
+  } else acc = 0;
+  if (dirty) { dirty = false; renderTab(); }
+  draw(now);
+  requestAnimationFrame(frame);
+}
+function boot() {
+  S.speed = 0;
+  if (!S.cands.length) S.cands = [newEmp(), newEmp(), newEmp()];
+  $('#tabs').innerHTML = TABS.map(([id, n]) => `<button role="tab" id="tab-${id}" data-tab="${id}" aria-controls="tp">${n}${id === 'res' ? '<span class="badge" data-live="resbadge"></span>' : ''}</button>`).join('');
+  selectTab(S.tab); updateTime(); refreshLive();
+  if (!S.intro) {
+    S.intro = true;
+    modal('Project DevCity', `<p>Janeiro de 1976. Você abre um estúdio de jogos na garagem dos seus pais com $30.000 no caixa.</p>
+      <ul><li>Em <b>Desenvolvimento</b>, escolha gênero e tema, ajuste o foco da equipe e inicie a produção.</li>
+      <li>Na fase de QA, espere os bugs caírem antes de lançar.</li>
+      <li>Use o lucro para contratar, mudar de sede, pesquisar tecnologia, fabricar consoles e comprar rivais.</li></ul>
+      <p>Atalhos: <kbd>Espaço</kbd> pausa e continua, <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> mudam a velocidade.</p>`, [['Começar']]).then(() => setSpeed(1));
+  }
+}
+function start(data) {
+  S = data?.S || load() || newGame();
+  boot();
+  requestAnimationFrame(frame);
+}
+
+for (const b of document.querySelectorAll('[data-speed]')) b.onclick = () => setSpeed(+b.dataset.speed);
+$('#tabs').onclick = e => { const b = e.target.closest('[role=tab]'); if (b) selectTab(b.dataset.tab); };
+$('#tabs').onkeydown = e => {
+  const i = TABS.findIndex(t => t[0] === S.tab), k = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+  if (k === undefined) return;
+  e.preventDefault(); selectTab(TABS[(k + TABS.length) % TABS.length][0], true);
+};
+$('#collapse').onclick = () => { const c = $('#panel').classList.toggle('collapsed'); $('#collapse').setAttribute('aria-expanded', !c); $('#collapse').textContent = c ? 'Abrir painel' : 'Recolher'; };
+$('#reset').onclick = e => {
+  const b = e.currentTarget;
+  if (b.dataset.armed) { delete b.dataset.armed; b.textContent = 'Novo jogo'; S = newGame(); save(); boot(); return; }
+  b.dataset.armed = 1; b.textContent = 'Confirmar novo jogo?';
+  setTimeout(() => { delete b.dataset.armed; b.textContent = 'Novo jogo'; }, 3000);
+};
+const tp = $('#tp');
+tp.addEventListener('click', e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) { ACT[b.dataset.act](b.dataset.a); refreshLive(); } });
+tp.addEventListener('input', e => {
+  const t = e.target, d = t.dataset;
+  if (t.id === 'tfilter') {
+    tfilter = t.value; const q = t.value.toLowerCase().trim();
+    for (const c of tp.querySelectorAll('[data-name]')) c.hidden = !!q && !c.dataset.name.includes(q);
+    return;
+  }
+  if (d.feat) S.draft.feats = t.checked ? [...new Set([...S.draft.feats, d.feat])] : S.draft.feats.filter(x => x !== d.feat);
+  if (d.bind) { const ks = d.bind.split('.'), last = ks.pop(); ks.reduce((o, k) => o[k], S)[last] = t.type === 'checkbox' ? t.checked : 'num' in d ? +t.value : t.value; }
+  if ('rerender' in d) markDirty();
+  refreshLive();
+});
+addEventListener('keydown', e => {
+  if ($('#modal').open || e.target.matches('input:not([type=range]):not([type=checkbox]), select, textarea')) return;
+  if (e.code === 'Space' && !e.target.closest('button, input, [role=tab]')) { e.preventDefault(); setSpeed(S.speed ? 0 : S.last); }
+  else if (/^[0-3]$/.test(e.key)) setSpeed(+e.key);
+});
+addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+new ResizeObserver(() => { const r = cv.getBoundingClientRect(), k = devicePixelRatio || 1; cv.width = Math.round(r.width * k); cv.height = Math.round(r.height * k); }).observe(cv);
+
+window.claude?.hot?.snapshot?.(() => ({ S }));
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
